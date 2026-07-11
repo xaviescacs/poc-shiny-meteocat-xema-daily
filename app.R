@@ -93,34 +93,67 @@ server <- function(input, output, session){
   
   clicked_border <- reactiveVal(NULL)
   clicked_station <- reactiveVal(NULL)
+  
 
   observeEvent(input$cat_map_shape_click, { 
     click <- input$cat_map_shape_click
+    if(!is.null(clicked_border())){
+      leafletProxy("cat_map") %>%
+        addPolygons(
+          data = borders[borders$nom_comar == clicked_border(), ],
+          layerId = clicked_border(),
+          fillColor = "transparent",
+          fillOpacity = 0.0,
+          color = "red",
+          weight = 2,
+          highlightOptions = highlightOptions(color = "white", weight = 3,
+                                              bringToFront = TRUE)
+        )
+    }
     clicked_border(click$id)
 
     output$text <- renderText({
       paste("Comarca:", clicked_border())
     })
-      
+    
+    # Highlight new selection
+    leafletProxy("cat_map") %>%
+      addPolygons(
+        data = borders[borders$nom_comar == clicked_border(), ],
+        layerId = clicked_border(),
+        fillColor = "blue",
+        fillOpacity = 0.5,          
+        color = "red",
+        weight = 2
+      )
+    
     output$stations_table <- renderDataTable({
       getStations(clicked_border()) |> 
         datatable(selection = "single")
     })
+    
+    # Reset variables_table
+    output$variables_table <- renderDataTable({
+      NULL
+    })
+    
+    # Reset clicked_station
+    clicked_station(NULL)
+    
   })
   
   observeEvent(input$stations_table_rows_selected, {
     selected_row <- input$stations_table_rows_selected
-    
     if (length(selected_row) > 0) {
       selectedStation <- getStations(clicked_border())[selected_row,]
       clicked_station(selectedStation$CODI_ESTACIO)
       
-      output$clicked_station <- renderText({
-        paste("Selected row:", selected_row,
-              "Comarca", clicked_border()
-              ,"Codi estacio:",clicked_station()
-              )
-      })
+      # output$clicked_station <- renderText({
+      #   paste("Selected row:", selected_row,
+      #         "Comarca", clicked_border()
+      #         ,"Codi estacio:",clicked_station()
+      #         )
+      # })
       
       output$variables_table <- renderDataTable({
         getStationVariables(clicked_station()) |> 
@@ -133,16 +166,13 @@ server <- function(input, output, session){
     selected_row <- input$variables_table_rows_selected
     if (length(selected_row) > 0) {
       selectedVariable <- getStationVariables(clicked_station())[selected_row,]
-      
       output$clicked_variable <- renderText({
         paste("Selected row:", selected_row,
               "Codi estacio:", clicked_station()
               ,"Codi variable",selectedVariable$CODI_VARIABLE
         )
       })
-      
     }
-    
   })
   
 }
