@@ -9,11 +9,11 @@ The goal is to show how to draw administrative borders over a leaflet map, captu
 
 ### Weather measurments
 
-The data used corresponds to daily measurments of automatic weather stations across all Catalonia, a net known as XEMA. More information can be found in [Servei Meteorològic de Catalunya website](https://www.meteo.cat/).
+The data used corresponds to daily measurments of automatic weather stations across all Catalonia, a net known as XEMA. More information can be found on the webstite of [Servei Meteorològic de Catalunya](https://www.meteo.cat/).
 
 It has been manually manually downloaded from this [URL](https://analisi.transparenciacatalunya.cat/Medi-Ambient/Dades-meteorol-giques-di-ries-de-la-XEMA/7bvh-jvq2/about_data).
 
-More information about the datasets and other similars can be found [here](https://meteo.cat/wpweb/serveis/dades-obertes/).
+More information about the datasets and similar others can be found [here](https://meteo.cat/wpweb/serveis/dades-obertes/).
 
 ### Borders
 
