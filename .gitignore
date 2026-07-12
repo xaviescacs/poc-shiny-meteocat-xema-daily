@@ -1,3 +1,6 @@
+# Config file
+config.R.local
+
 # History files
 .Rhistory
 .Rapp.history
