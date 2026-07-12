@@ -35,6 +35,19 @@ variables <- data |>
   select(CODI_VARIABLE,NOM_VARIABLE) |> 
   distinct()
 
+getStations <- function(comarca){
+  stations |> 
+    filter(NOM_COMARCA == comarca) |> 
+    select(CODI_ESTACIO,NOM_ESTACIO,NOM_MUNICIPI,EMPLACAMENT,lat,lon)
+}
+
+getStationVariables <- function(codi_estacio){
+  data |> 
+    filter(CODI_ESTACIO == codi_estacio) |> 
+    select(CODI_VARIABLE,NOM_VARIABLE) |> 
+    distinct()
+}
+
 ui <- fluidPage(
   fluidRow(
     column(4,
@@ -66,30 +79,14 @@ server <- function(input, output, session){
       addPolygons(
         data = borders,
         layerId = ~nom_comar,
+        fillColor = "blue",
+        fillOpacity = 0.3,  
         color = "red",
-        fillOpacity = 0.0,
         weight = 2,
         highlightOptions = highlightOptions(color = "white", weight = 3,
                                             bringToFront = TRUE)
       ) 
   })
-  
-  # Update map with the station selected in the table and print on the right 
-  # the average measurments which can be again clicked and then a time grpah appears
-  # at the bottom
-  
-  getStations <- function(comarca){
-    stations |> 
-      filter(NOM_COMARCA == comarca) |> 
-      select(CODI_ESTACIO,NOM_ESTACIO,lat,lon)
-  }
-  
-  getStationVariables <- function(codi_estacio){
-    data |> 
-      filter(CODI_ESTACIO == codi_estacio) |> 
-      select(CODI_VARIABLE,NOM_VARIABLE) |> 
-      distinct()
-  }
   
   clicked_border <- reactiveVal(NULL)
   clicked_station <- reactiveVal(NULL)
@@ -97,13 +94,14 @@ server <- function(input, output, session){
 
   observeEvent(input$cat_map_shape_click, { 
     click <- input$cat_map_shape_click
+    # Delete previous comarca selection before saving the new one
     if(!is.null(clicked_border())){
-      leafletProxy("cat_map") %>%
+      leafletProxy("cat_map") |> 
         addPolygons(
           data = borders[borders$nom_comar == clicked_border(), ],
           layerId = clicked_border(),
-          fillColor = "transparent",
-          fillOpacity = 0.0,
+          fillColor = "blue",
+          fillOpacity = 0.3,  
           color = "red",
           weight = 2,
           highlightOptions = highlightOptions(color = "white", weight = 3,
@@ -117,18 +115,19 @@ server <- function(input, output, session){
     })
     
     # Highlight new selection
-    leafletProxy("cat_map") %>%
+    leafletProxy("cat_map") |> 
       addPolygons(
         data = borders[borders$nom_comar == clicked_border(), ],
         layerId = clicked_border(),
-        fillColor = "blue",
-        fillOpacity = 0.5,          
+        fillColor = "transparent",
+        fillOpacity = 0.0,
         color = "red",
         weight = 2
       )
     
     output$stations_table <- renderDataTable({
       getStations(clicked_border()) |> 
+        select(CODI_ESTACIO,NOM_ESTACIO,lat,lon) |> 
         datatable(selection = "single")
     })
     
@@ -140,6 +139,10 @@ server <- function(input, output, session){
     # Reset clicked_station
     clicked_station(NULL)
     
+    # Reset markers
+    leafletProxy("cat_map") |> 
+      clearMarkers()
+    
   })
   
   observeEvent(input$stations_table_rows_selected, {
@@ -148,18 +151,27 @@ server <- function(input, output, session){
       selectedStation <- getStations(clicked_border())[selected_row,]
       clicked_station(selectedStation$CODI_ESTACIO)
       
-      # output$clicked_station <- renderText({
-      #   paste("Selected row:", selected_row,
-      #         "Comarca", clicked_border()
-      #         ,"Codi estacio:",clicked_station()
-      #         )
-      # })
-      
       output$variables_table <- renderDataTable({
         getStationVariables(clicked_station()) |> 
           datatable(selection = "single")
       })
     }
+    
+    # Add station's marker
+    leafletProxy("cat_map") |> 
+      clearMarkers()
+    station_popup <- as.character(tagList(
+      tags$h4(selectedStation$NOM_ESTACIO),
+      glue::glue("Codi estació: {selectedStation$CODI_ESTACIO}"), 
+      tags$br(),
+      glue::glue("Municipi: {selectedStation$NOM_MUNICIPI}"), 
+      tags$br(),
+      glue::glue("Emplaçament: {selectedStation$EMPLACAMENT}")
+    ))
+    leafletProxy("cat_map") |> 
+      addMarkers(lat = selectedStation$lat, lng = selectedStation$lon,
+                 popup = station_popup)
+    
   })
   
   observeEvent(input$variables_table_rows_selected, {
