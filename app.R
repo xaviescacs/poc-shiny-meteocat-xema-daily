@@ -7,28 +7,37 @@ library(dplyr)
 library(DT)
 library(ggplot2)
 library(glue)
+# box
 
+# system installs
 # libpoppler-cpp-dev
 # cmake
 # libgdal-dev
 # libudunits2-dev
 
+# Load configuration. Check if local exists, so both can coexist in the local environment
+if (file.exists(box::file("config.R.local"))) {
+  message("Loading local config file...")
+  source(box::file("config.R.local"))
+} else if (file.exists(box::file("config.R"))) {
+  source(box::file("config.R"))
+} else {
+  stop("Neither config.R nor config.R.local found!")
+}
 
-base_path <- "/run/media/xavier/datascience/code/csdta/poc-shiny-meteocat-xema-daily/"
-
-stations <- read_csv(paste0(base_path,"xemadata/stations_metadata.csv")) |> 
+stations <- read_csv(file.path(getConfig()$xema_data_path,"stations_metadata.csv")) |> 
   mutate(
     lon = as.numeric(str_extract(Georeferència, "(?<=\\()\\s*-?\\d+\\.\\d+")),
     lat = as.numeric(str_extract(Georeferència, "-?\\d+\\.\\d+\\s*(?=\\))"))
   )
 
-# The comerca Lluçanès does not exists in the borders used
+# The comarca Lluçanès does not exists in the borders used
 stations[stations$CODI_ESTACIO == "V5",]$CODI_COMARCA <- 24
 stations[stations$CODI_ESTACIO == "V5",]$NOM_COMARCA <- "Osona"
 
-borders <- st_read(paste0(base_path,"geodata/comarques-compressed.geojson"))
+borders <- st_read(file.path(getConfig()$geojson_data_path,"comarques-compressed.geojson"))
 
-data <- read_csv(paste0(base_path,"xemadata/daily_stations_meteo_data.csv")) |> 
+data <- read_csv(file.path(getConfig()$xema_data_path,"daily_stations_meteo_data.csv")) |> 
   mutate(
     valor = str_remove(VALOR,"\\.") |> 
       str_replace("\\,","\\.") |> 
