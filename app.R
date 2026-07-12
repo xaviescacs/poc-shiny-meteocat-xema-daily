@@ -22,6 +22,7 @@ stations <- read_csv(paste0(base_path,"xemadata/stations_metadata.csv")) |>
     lat = as.numeric(str_extract(Georeferència, "-?\\d+\\.\\d+\\s*(?=\\))"))
   )
 
+# The comerca Lluçanès does not exists in the borders used
 stations[stations$CODI_ESTACIO == "V5",]$CODI_COMARCA <- 24
 stations[stations$CODI_ESTACIO == "V5",]$NOM_COMARCA <- "Osona"
 
@@ -51,17 +52,36 @@ getStationVariables <- function(codi_estacio){
     distinct()
 }
 
+leaflet_styles <- list(
+  fillColor = "blue",
+  fillOpacity = 0.3,  
+  color = "red",
+  weight = 2
+)
+
+# ggplot theme global settings
+set_theme(theme_minimal())
+update_theme(
+  plot.title = element_text(size=22),
+  plot.subtitle = element_text(size=16)
+)
+
 ui <- fluidPage(
+  h1("Consulta de dades diàries de la xarxa XEMA"),
+  h4("Escull una comarca, una estació i una variable."),
   fluidRow(
-    column(4,
-      leafletOutput("cat_map")
+    column(6,
+      leafletOutput("cat_map", height = "600px")
     ),
     column(4,
       DTOutput("stations_table")
     ),
-    column(4,
+    column(2,
       DTOutput("variables_table")
     )
+  ),
+  fluidRow(
+    h3(textOutput("plots_title"))
   ),
   fluidRow(
     column(4,
@@ -82,10 +102,10 @@ server <- function(input, output, session){
       addPolygons(
         data = borders,
         layerId = ~nom_comar,
-        fillColor = "blue",
-        fillOpacity = 0.3,  
-        color = "red",
-        weight = 2,
+        fillColor = leaflet_styles$fillColor,
+        fillOpacity = leaflet_styles$fillOpacity,  
+        color = leaflet_styles$color,
+        weight = leaflet_styles$weight,
         highlightOptions = highlightOptions(color = "white", weight = 3,
                                             bringToFront = TRUE)
       ) 
@@ -102,10 +122,10 @@ server <- function(input, output, session){
         addPolygons(
           data = borders[borders$nom_comar == clicked_border(), ],
           layerId = clicked_border(),
-          fillColor = "blue",
-          fillOpacity = 0.3,  
-          color = "red",
-          weight = 2,
+          fillColor = leaflet_styles$fillColor,
+          fillOpacity = leaflet_styles$fillOpacity,  
+          color = leaflet_styles$color,
+          weight = leaflet_styles$weight,
           highlightOptions = highlightOptions(color = "white", weight = 3,
                                               bringToFront = TRUE)
         )
@@ -119,8 +139,8 @@ server <- function(input, output, session){
         layerId = clicked_border(),
         fillColor = "transparent",
         fillOpacity = 0.0,
-        color = "red",
-        weight = 2
+        color = "yellow",
+        weight = 4
       )
     
     output$stations_table <- renderDataTable({
@@ -135,6 +155,7 @@ server <- function(input, output, session){
     })
     
     # Reset plots
+    output$plots_title <- renderText(NULL)
     output$distribution <- renderPlot(NULL)
     output$ts <- renderPlot(NULL)
     
@@ -155,6 +176,7 @@ server <- function(input, output, session){
       
       output$variables_table <- renderDataTable({
         getStationVariables(clicked_station()) |> 
+          select(NOM_VARIABLE) |> 
           datatable(selection = "single")
       })
     }
@@ -175,6 +197,7 @@ server <- function(input, output, session){
                  popup = station_popup)
     
     # Reset plots
+    output$plots_title <- renderText(NULL)
     output$distribution <- renderPlot(NULL)
     output$ts <- renderPlot(NULL)
     
@@ -200,19 +223,17 @@ server <- function(input, output, session){
     selectedStation <- stations |> 
       filter(CODI_ESTACIO == clicked_station())
     
-    set_theme(theme_minimal())
-    update_theme(
-      plot.title = element_text(size=22),
-      plot.subtitle = element_text(size=16)
-    )
+    output$plots_title <- renderText({
+      glue("Distribució i evolució de {selectedVariable$NOM_VARIABLE} a l'estació {selectedStation$NOM_ESTACIO} a {clicked_border()} entre els dies {min(selected_data$DATA_LECTURA)} i {max(selected_data$DATA_LECTURA)}")
+    })
     
     output$distribution <- renderPlot({
       selected_data |> 
         ggplot(aes(x = valor)) +
           geom_histogram(bins = 50) +
           labs(
-            title = glue("Distribució de {selectedVariable$NOM_VARIABLE} a {clicked_border()}"),
-            subtitle = glue("Estació {selectedStation$NOM_ESTACIO} entre els dies {min(selected_data$DATA_LECTURA)} i {max(selected_data$DATA_LECTURA)}"),
+            title = glue("Distribució"),
+            #subtitle = glue("Estació {selectedStation$NOM_ESTACIO} entre els dies {min(selected_data$DATA_LECTURA)} i {max(selected_data$DATA_LECTURA)}"),
             x = selectedVariable$NOM_VARIABLE, y = "Freqüència"
           )
     }) 
@@ -222,12 +243,12 @@ server <- function(input, output, session){
         ggplot(aes(x = DATA_LECTURA,y = valor,fill = valor)) +
           geom_col() +
           theme(
-            axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
-            
+            axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)
           ) +
+          scale_fill_continuous(name = selectedVariable$NOM_VARIABLE) +
           labs(
-            title = glue("Evolució de {selectedVariable$NOM_VARIABLE} a {clicked_border()}"),
-            subtitle = glue("Estació {selectedStation$NOM_ESTACIO} entre els dies {min(selected_data$DATA_LECTURA)} i {max(selected_data$DATA_LECTURA)}"),
+            title = glue("Evolució"),
+            # subtitle = glue("Estació {selectedStation$NOM_ESTACIO} entre els dies {min(selected_data$DATA_LECTURA)} i {max(selected_data$DATA_LECTURA)}"),
             x = "Data (dia)", y = selectedVariable$NOM_VARIABLE
           )
     }) 
