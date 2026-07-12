@@ -2,8 +2,11 @@ library(shiny)
 library(leaflet)
 library(sf)
 library(readr)
-library(tidyverse)
+library(stringr)
+library(dplyr)
 library(DT)
+library(ggplot2)
+library(glue)
 
 # libpoppler-cpp-dev
 # cmake
@@ -57,16 +60,16 @@ ui <- fluidPage(
       DTOutput("stations_table")
     ),
     column(4,
-      textOutput("clicked_station"),
       DTOutput("variables_table")
     )
   ),
   fluidRow(
-    textOutput("text"),
-    textOutput("clicked_variable")
-  ),
-  fluidRow(
-    
+    column(4,
+      plotOutput("distribution")   
+    ),
+    column(8,
+      plotOutput("ts")     
+    )
   )
 )
 
@@ -90,7 +93,6 @@ server <- function(input, output, session){
   
   clicked_border <- reactiveVal(NULL)
   clicked_station <- reactiveVal(NULL)
-  
 
   observeEvent(input$cat_map_shape_click, { 
     click <- input$cat_map_shape_click
@@ -109,10 +111,6 @@ server <- function(input, output, session){
         )
     }
     clicked_border(click$id)
-
-    output$text <- renderText({
-      paste("Comarca:", clicked_border())
-    })
     
     # Highlight new selection
     leafletProxy("cat_map") |> 
@@ -135,6 +133,10 @@ server <- function(input, output, session){
     output$variables_table <- renderDataTable({
       NULL
     })
+    
+    # Reset plots
+    output$distribution <- renderPlot(NULL)
+    output$ts <- renderPlot(NULL)
     
     # Reset clicked_station
     clicked_station(NULL)
@@ -162,15 +164,19 @@ server <- function(input, output, session){
       clearMarkers()
     station_popup <- as.character(tagList(
       tags$h4(selectedStation$NOM_ESTACIO),
-      glue::glue("Codi estació: {selectedStation$CODI_ESTACIO}"), 
+      glue("Codi estació: {selectedStation$CODI_ESTACIO}"), 
       tags$br(),
-      glue::glue("Municipi: {selectedStation$NOM_MUNICIPI}"), 
+      glue("Municipi: {selectedStation$NOM_MUNICIPI}"), 
       tags$br(),
-      glue::glue("Emplaçament: {selectedStation$EMPLACAMENT}")
+      glue("Emplaçament: {selectedStation$EMPLACAMENT}")
     ))
     leafletProxy("cat_map") |> 
       addMarkers(lat = selectedStation$lat, lng = selectedStation$lon,
                  popup = station_popup)
+    
+    # Reset plots
+    output$distribution <- renderPlot(NULL)
+    output$ts <- renderPlot(NULL)
     
   })
   
@@ -185,6 +191,47 @@ server <- function(input, output, session){
         )
       })
     }
+    
+    selected_data <- data |> 
+      filter(CODI_VARIABLE == selectedVariable$CODI_VARIABLE,
+             CODI_ESTACIO == clicked_station()) |> 
+      select(DATA_LECTURA,UNITAT,valor)
+    
+    selectedStation <- stations |> 
+      filter(CODI_ESTACIO == clicked_station())
+    
+    set_theme(theme_minimal())
+    update_theme(
+      plot.title = element_text(size=22),
+      plot.subtitle = element_text(size=16)
+    )
+    
+    output$distribution <- renderPlot({
+      selected_data |> 
+        ggplot(aes(x = valor)) +
+          geom_histogram(bins = 50) +
+          labs(
+            title = glue("Distribució de {selectedVariable$NOM_VARIABLE} a {clicked_border()}"),
+            subtitle = glue("Estació {selectedStation$NOM_ESTACIO} entre els dies {min(selected_data$DATA_LECTURA)} i {max(selected_data$DATA_LECTURA)}"),
+            x = selectedVariable$NOM_VARIABLE, y = "Freqüència"
+          )
+    }) 
+    
+    output$ts <- renderPlot({
+      selected_data |> 
+        ggplot(aes(x = DATA_LECTURA,y = valor,fill = valor)) +
+          geom_col() +
+          theme(
+            axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+            
+          ) +
+          labs(
+            title = glue("Evolució de {selectedVariable$NOM_VARIABLE} a {clicked_border()}"),
+            subtitle = glue("Estació {selectedStation$NOM_ESTACIO} entre els dies {min(selected_data$DATA_LECTURA)} i {max(selected_data$DATA_LECTURA)}"),
+            x = "Data (dia)", y = selectedVariable$NOM_VARIABLE
+          )
+    }) 
+    
   })
   
 }
