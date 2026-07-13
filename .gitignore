@@ -1,6 +1,9 @@
 # Config file
 config.R.local
 
+# Docker build log
+docker_build.log
+
 # History files
 .Rhistory
 .Rapp.history
