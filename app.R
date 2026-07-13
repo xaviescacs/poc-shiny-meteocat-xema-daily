@@ -25,6 +25,9 @@ if (file.exists(box::file("config.R.local"))) {
   stop("Neither config.R nor config.R.local found!")
 }
 
+
+borders <- st_read(file.path(getConfig()$geojson_data_path,"comarques-compressed.geojson"))
+
 stations <- read_csv(file.path(getConfig()$xema_data_path,"stations_metadata.csv")) |> 
   mutate(
     lon = as.numeric(str_extract(Georeferència, "(?<=\\()\\s*-?\\d+\\.\\d+")),
@@ -35,18 +38,13 @@ stations <- read_csv(file.path(getConfig()$xema_data_path,"stations_metadata.csv
 stations[stations$CODI_ESTACIO == "V5",]$CODI_COMARCA <- 24
 stations[stations$CODI_ESTACIO == "V5",]$NOM_COMARCA <- "Osona"
 
-borders <- st_read(file.path(getConfig()$geojson_data_path,"comarques-compressed.geojson"))
-
-data <- read_csv(file.path(getConfig()$xema_data_path,"daily_stations_meteo_data.csv")) |> 
+data <- read_csv(file.path(getConfig()$xema_data_path,"daily_stations_meteo_data.csv"),col_select = -c(ID,NOM_ESTACIO,`HORA _TU`)) |> 
   mutate(
     valor = str_remove(VALOR,"\\.") |> 
       str_replace("\\,","\\.") |> 
-      as.numeric() 
+      as.numeric(),
+    .keep = "unused"
   )
-
-variables <- data |> 
-  select(CODI_VARIABLE,NOM_VARIABLE) |> 
-  distinct()
 
 getStations <- function(comarca){
   stations |> 
