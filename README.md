@@ -18,3 +18,11 @@ More information about the datasets and similar others can be found [here](https
 ### Borders
 
 The borders polygon data has been downloaded from [this](https://github.com/aariste/GeoJSON-Mapas) GitHub repository. Thanks to [@aariste](https://github.com/aariste).
+
+## Instructions for local deploy
+
+1. Clone the main branch of the repository to local
+2. Copy the `config.R` file and rename it to `config.R.local`
+3. Add the local absolute paths to the daa in the `else` section of the `getConfig` function.
+4. It should work if you have all packages installed.
+
